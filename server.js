@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -19,17 +18,7 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.mailersend.net',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// --- REST API: AUTH & OTP ---
+// --- REST API: AUTH & OTP (Using MailerSend HTTPS API to bypass Render SMTP block) ---
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'DTU Route & Cart Backend is live!' });
 });
@@ -50,12 +39,42 @@ app.post('/api/auth/send-otp', async (req, res) => {
       create: { email, otp, expiresAt },
     });
 
-    await transporter.sendMail({
-      from: `"DTU Route & Cart" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Your DTU Secure OTP Code',
-      text: `Your verification code is: ${otp}. Expires in 5 minutes.`,
+    // Make HTTPS API request to MailerSend (Port 443 - Fully allowed on Render)
+    const response = await fetch('https://api.mailersend.com/v1/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.MAILERSEND_API_KEY}`
+      },
+      body: JSON.stringify({
+        from: {
+          email: process.env.EMAIL_FROM || "no-reply@test-65ongkdrzo8lwr12.mlsender.net",
+          name: "DTU Route & Cart"
+        },
+        to: [
+          {
+            email: email,
+            name: "DTU Student"
+          }
+        ],
+        subject: "Your DTU Secure OTP Code",
+        text: `Your verification code for DTU Route & Cart is: ${otp}. It expires in 5 minutes.`,
+        html: `
+          <div style="font-family: monospace; background: #0A0F1D; color: #fff; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #38BDF8;">DTU ROUTE & CART</h2>
+            <p>Your secure verification code is:</p>
+            <h1 style="color: #10B981; letter-spacing: 4px;">${otp}</h1>
+            <p style="color: #9ca3af; font-size: 12px;">This code expires in 5 minutes.</p>
+          </div>
+        `
+      })
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('MailerSend API Error:', errText);
+      return res.status(500).json({ error: 'Failed to send OTP email via API.' });
+    }
 
     return res.status(200).json({ message: 'OTP sent successfully to email.' });
   } catch (error) {
