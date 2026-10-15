@@ -8,19 +8,19 @@ generator client {
 }
 
 model User {
-  id               String       @id @default(uuid())
-  email            String       @unique
-  fullName         String       @map("full_name")
-  branch           String
-  batchYear        Int          @map("batch_year")
-  reputationScore  Decimal      @default(5.00) @map("reputation_score") @db.Decimal(3,2)
-  totalRatings     Int          @default(0) @map("total_ratings")
-  createdAt        DateTime     @default(now()) @map("created_at")
+  id               String            @id @default(uuid())
+  email            String            @unique
+  fullName         String            @map("full_name")
+  branch           String            @default("COE")
+  batchYear        Int               @default(2026) @map("batch_year")
+  reputationScore  Decimal           @default(5.00) @map("reputation_score") @db.Decimal(3,2)
+  totalRatings     Int               @default(0) @map("total_ratings")
+  createdAt        DateTime          @default(now()) @map("created_at")
 
-  ridesHosted      Ride[]       @relation("HostRides")
+  ridesHosted      Ride[]            @relation("HostRides")
   rideParticipations RideParticipant[]
-  ratingsGiven     Rating[]     @relation("RatingsGiven")
-  ratingsReceived  Rating[]     @relation("RatingsReceived")
+  ratingsGiven     Rating[]          @relation("RatingsGiven")
+  ratingsReceived  Rating[]          @relation("RatingsReceived")
 }
 
 enum RideType {
@@ -37,17 +37,17 @@ enum RideStatus {
 }
 
 model Ride {
-  id                  String          @id @default(uuid())
-  hostUserId          String          @map("host_user_id")
-  host                User            @relation("HostRides", fields: [hostUserId], references: [id], onDelete: Cascade)
-  type                RideType        @default(cab_pool)
+  id                  String            @id @default(uuid())
+  hostUserId          String            @map("host_user_id")
+  host                User              @relation("HostRides", fields: [hostUserId], references: [id], onDelete: Cascade)
+  type                RideType          @default(cab_pool)
   origin              String
   destination         String
-  departureTime       DateTime        @map("departure_time")
-  maxSeats            Int             @default(4) @map("max_seats")
-  currentSeatsFilled  Int             @default(1) @map("current_seats_filled")
-  status              RideStatus      @default(open)
-  createdAt           DateTime        @default(now()) @map("created_at")
+  departureTime       DateTime          @map("departure_time")
+  maxSeats            Int               @default(4) @map("max_seats")
+  currentSeatsFilled  Int               @default(1) @map("current_seats_filled")
+  status              RideStatus        @default(open)
+  createdAt           DateTime          @default(now()) @map("created_at")
 
   participants        RideParticipant[]
 }
@@ -78,4 +78,12 @@ model Rating {
   ratee        User        @relation("RatingsReceived", fields: [rateeId], references: [id], onDelete: Cascade)
 
   @@unique([rideId, raterId])
+}
+
+model OtpVerification {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  otp       String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
 }
